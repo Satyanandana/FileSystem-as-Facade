@@ -1,0 +1,150 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<project name="FileSystemAsFacade" default="run" basedir="." xmlns:jacoco="antlib:org.jacoco.ant" >
+	<!--Load environment variables and give them prefix "env." -->
+	<property environment="env" />
+		
+	<property name="java.home" value="${env.JAVA_HOME}" />
+	<property name="findbugs.home" value="${env.FINDBUGS_HOME}" />
+	<property name="pmd.home" value="${env.PMD_HOME}" />
+	<property name="jacoco.home" value="${env.JACOCO_HOME}" />
+
+	<property name="src.dir" value="src" />
+	<property name="bin.dir" value="bin" />
+	<property name="testsrc.dir" value="test/src" />
+	<property name="testbin.dir" value="test/bin" />
+	<property name="classes.dir" value="${bin.dir}/classes" />
+	<property name="testclasses.dir" value="${testbin.dir}/classes" />
+	<property name="exec.file" location="jacoco.exec" />
+	
+
+	<!-- Classpath declaration: all jars in lib dirs -->
+	<path id="project.classpath">
+		<pathelement location="${classes.dir}" />
+		<pathelement location="${testclasses.dir}" />
+		<fileset dir="${java.home}\lib">
+			<include name="*.jar" />
+		</fileset>
+	</path>
+
+	<!-- Clean up -->
+	<target name="clean" description="Clean up the derived files">
+		<delete dir="${classes.dir}" />
+		<delete dir="${testclasses.dir}" />
+	</target>
+
+	<!-- Compile Java source, requesting extra info on deprecated methods -->
+	<target name="compile" description="Clean up the derived files" depends="clean" >
+		<mkdir dir="${classes.dir}" />
+		<javac includeantruntime="false" srcdir="${src.dir}" debug="on" destdir="${classes.dir}" classpathref="project.classpath">
+			<compilerarg value="-Xlint:deprecation" />
+		</javac>
+
+		<mkdir dir="${testclasses.dir}" />
+		<javac includeantruntime="false" srcdir="${testsrc.dir}" debug="on" destdir="${testclasses.dir}" classpathref="project.classpath">
+			<compilerarg value="-Xlint:deprecation" />
+		</javac>
+	</target>
+
+	<target name="build" depends="compile" />
+	
+	
+		
+	<target name="test" depends="build">
+			<!-- Step 2: Wrap test execution with the JaCoCo coverage task -->
+			<jacoco:coverage destfile="${exec.file}">
+				<junit fork="true" forkmode="once">
+					<formatter type="brief" usefile="false"/>
+					<test name="test.FileSystemTest"/>
+					<classpath refid="project.classpath"/>
+				</junit>
+			</jacoco:coverage>
+		</target>
+
+	<!-- -->
+	
+
+
+	<target name="findbugs" depends="test">
+		
+		<path id="findbugs.classpath">
+			<fileset dir="${findbugs.home}\lib">
+				<include name="*.jar" />
+			</fileset>
+		</path>
+		
+	<taskdef name="findbugs"  classname="edu.umd.cs.findbugs.anttask.FindBugsTask"   classpathref="findbugs.classpath" />
+		<echo message="the findbugs installation directory is at ${findbugs.home}" />
+		<findbugs home="${findbugs.home}"
+	              output="xml"
+	              outputFile="findbugs.xml" >
+
+
+			<sourcePath path="${src.dir}"/>
+			<auxclasspath refid="project.classpath"/>
+			<class location="${classes.dir}" />
+			<sourcePath path="${testsrc.dir}"/>
+			<auxclasspath refid="project.classpath"/>
+			<class location="${testclasses.dir}" />
+
+		</findbugs>
+	</target>
+
+	<target name="pmd" >
+
+		<path id="pmd.classpath">
+			<fileset dir="${pmd.home}\lib">
+				<include name="*.jar" />
+			</fileset>
+		</path>
+		<taskdef name="pmd" classname="net.sourceforge.pmd.ant.PMDTask" classpathref="pmd.classpath" />
+
+		<pmd shortFilenames="true">
+			<sourceLanguage name="java" version="1.7"/>
+			<ruleset>rulesets/java/design.xml</ruleset>
+			<ruleset>java-basic</ruleset>
+			<formatter type="html" toFile="pmd_report.html" toConsole="true">
+				<param name="linkPrefix" value="http://pmd.sourceforge.net/xref/"/>
+			</formatter>
+
+			<fileset dir="${src.dir}">
+				<include name="**/*.java"/>
+			</fileset>
+		</pmd>
+	</target>
+	
+	<target name="jacocoReport" depends="test">
+			<!-- Step 3: Create coverage report -->
+			<jacoco:report>
+
+				<!-- This task needs the collected execution data and ... -->
+				<executiondata>
+					<file file="${exec.file}" />
+				</executiondata>
+
+				<!-- the class files and optional source files ... -->
+				<structure name="JaCoCo Ant Example">
+					<classfiles>
+						<fileset dir="${classes.dir}" >
+						<exclude name="**/Test.class" />
+						</fileset>
+					</classfiles>
+					<sourcefiles encoding="UTF-8">
+						<fileset dir="${src.dir}" />
+					</sourcefiles>
+				</structure>
+
+				<!-- to produce reports in different formats. -->
+				<html destdir="jacocoreport" />
+			</jacoco:report>
+		</target>
+
+
+	<target name="run" depends="findbugs,pmd,jacocoReport">
+		<java fork="true" classname="facade.Test" failonerror="true" dir="${basedir}">
+			<classpath refid="project.classpath" />
+		</java>
+	</target>
+
+
+</project>
